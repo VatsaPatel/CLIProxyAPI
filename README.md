@@ -2,6 +2,9 @@
 
 English | [中文](README_CN.md) | [日本語](README_JA.md)
 
+> [!IMPORTANT]
+> This is the [`VatsaPatel/CLIProxyAPI`](https://github.com/VatsaPatel/CLIProxyAPI) custom fork. The maintained branch is [`custom`](https://github.com/VatsaPatel/CLIProxyAPI/tree/custom); the original project is [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI). Upstream binaries and images do not contain this fork's changes. See [Custom fork operations](#custom-fork-operations) below.
+
 A proxy server that provides OpenAI/Gemini/Claude/Codex/Grok compatible API interfaces for CLI.
 
 You can access the following providers locally and with multiple CLI accounts through any OpenAI (including Responses), Gemini (including Interactions), or Claude-compatible client or SDK.
@@ -123,6 +126,102 @@ PackyCode provides special discounts for our software users: register using <a h
 ## Getting Started
 
 CLIProxyAPI Guides: [https://help.router-for.me/](https://help.router-for.me/)
+
+## Custom fork operations
+
+### Clone this fork
+
+```bash
+git clone --branch custom https://github.com/VatsaPatel/CLIProxyAPI.git
+cd CLIProxyAPI
+git remote add upstream https://github.com/router-for-me/CLIProxyAPI.git
+```
+
+Keep `config.yaml`, `.env`, API keys, and OAuth files local; never commit them.
+
+### Update while keeping the custom changes
+
+Start with a clean `custom` branch and fetch upstream branches and tags:
+
+```bash
+git switch custom
+git status --short # Must print nothing before continuing.
+git fetch upstream --prune --tags
+```
+
+Merge either the latest upstream `main`:
+
+```bash
+git merge upstream/main
+```
+
+or the latest fetched upstream release:
+
+```bash
+LATEST_RELEASE="$(git tag --merged upstream/main --list 'v[0-9]*' --sort=-version:refname | grep -m1 .)"
+printf 'Merging %s\n' "$LATEST_RELEASE"
+git merge "$LATEST_RELEASE"
+```
+
+Then verify and publish the updated custom branch:
+
+```bash
+go test ./...
+go build -o test-output ./cmd/server && rm test-output
+git push origin custom
+```
+
+Use merges rather than rebasing the published `custom` branch so its history remains safe to use on multiple computers.
+
+### Persistent local deployment used here
+
+The current host runs the proxy as a detached, self-healing process rather than Docker or systemd:
+
+| Path | Purpose |
+|---|---|
+| `~/.local/bin/cli-proxy-api` | Installed binary built from this `custom` branch |
+| `~/.local/share/cliproxyapi/ensure.sh` | Uses `flock` to prevent duplicates and `setsid` to launch the supervisor independently of the terminal |
+| `~/.local/share/cliproxyapi/supervisor.sh` | Probes `http://127.0.0.1:8317/healthz` every 30 seconds, restarts after two failures, and trims logs above 2 MiB |
+| `~/.local/share/cliproxyapi/run.sh` | Prepares the private runtime config and executes the installed binary |
+| `~/.local/state/cliproxyapi/` | PID files plus `server.log` and `supervisor.log` |
+| `/dev/shm/cliproxyapi-${USER:-local}/` | Private generated runtime config; recreated when the server starts |
+
+`~/.bashrc` contains this idempotent startup hook:
+
+```bash
+bash "$HOME/.local/share/cliproxyapi/ensure.sh"
+```
+
+This setup survives terminal closure and restarts an unhealthy proxy. After a computer or container reboot, it starts when the first interactive Bash shell opens. On a platform with another startup mechanism, invoke `ensure.sh` from that mechanism instead.
+
+Useful operations:
+
+```bash
+# Health and logs
+curl -fsS http://127.0.0.1:8317/healthz
+tail -f "$HOME/.local/state/cliproxyapi/server.log"
+tail -f "$HOME/.local/state/cliproxyapi/supervisor.log"
+
+# Stop the supervisor and its managed server
+kill "$(cat "$HOME/.local/state/cliproxyapi/supervisor.pid")"
+
+# Start it again
+bash "$HOME/.local/share/cliproxyapi/ensure.sh"
+```
+
+After updating the source, rebuild and replace the installed binary, then restart the supervisor:
+
+```bash
+tmp_bin="$(mktemp)"
+go build -o "$tmp_bin" ./cmd/server
+install -m 755 "$tmp_bin" "$HOME/.local/bin/cli-proxy-api"
+rm -f "$tmp_bin"
+kill "$(cat "$HOME/.local/state/cliproxyapi/supervisor.pid")" 2>/dev/null || true
+sleep 2
+bash "$HOME/.local/share/cliproxyapi/ensure.sh"
+```
+
+The local config generator and environment contain private provider credentials and are intentionally not published. A new computer should supply its own protected configuration and keep secret-bearing files mode `0600`.
 
 ## Management API
 
