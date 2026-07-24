@@ -212,6 +212,9 @@ func (s *ConfigSynthesizer) synthesizeCodexStyleKeys(ctx *SynthesisContext, entr
 		if entry.Websockets {
 			attrs["websockets"] = "true"
 		}
+		if entry.StatefulResponses {
+			attrs["stateful_responses"] = "true"
+		}
 		if hash := diff.ComputeCodexModelsHash(entry.Models); hash != "" {
 			attrs["models_hash"] = hash
 		}

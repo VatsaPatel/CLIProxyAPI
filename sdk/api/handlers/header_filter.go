@@ -41,6 +41,11 @@ var cpaReservedResponseHeaders = map[string]struct{}{
 	"X-Cpa-Trace-Id":                {},
 }
 
+var localResponseHeaders = map[string]struct{}{
+	"X-Cliproxy-Previous-Response-Id": {},
+	"X-Cliproxy-Response-State":       {},
+}
+
 // IsCPAReservedResponseHeader reports whether a downstream response header is managed by CPA.
 func IsCPAReservedResponseHeader(name string) bool {
 	_, reserved := cpaReservedResponseHeaders[http.CanonicalHeaderKey(name)]
@@ -80,6 +85,23 @@ func FilterUpstreamHeaders(src http.Header) http.Header {
 			continue
 		}
 		dst[key] = values
+	}
+	if len(dst) == 0 {
+		return nil
+	}
+	return dst
+}
+
+func filterLocalResponseHeaders(src http.Header) http.Header {
+	if src == nil {
+		return nil
+	}
+	dst := make(http.Header)
+	for key, values := range src {
+		canonicalKey := http.CanonicalHeaderKey(key)
+		if _, ok := localResponseHeaders[canonicalKey]; ok {
+			dst[canonicalKey] = append([]string(nil), values...)
+		}
 	}
 	if len(dst) == 0 {
 		return nil

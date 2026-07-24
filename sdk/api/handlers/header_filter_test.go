@@ -57,3 +57,35 @@ func TestFilterUpstreamHeaders_ReturnsNilWhenAllHeadersBlocked(t *testing.T) {
 		t.Fatalf("expected nil when all headers are filtered, got %#v", filtered)
 	}
 }
+
+func TestFilterLocalResponseHeaders(t *testing.T) {
+	src := http.Header{
+		"X-CLIProxy-Response-State":       []string{"previous"},
+		"X-CLIProxy-Previous-Response-ID": []string{"resp-1"},
+		"X-Upstream-Other":                []string{"hidden"},
+	}
+	got := filterLocalResponseHeaders(src)
+	if got.Get("X-CLIProxy-Response-State") != "previous" {
+		t.Fatalf("response state = %q", got.Get("X-CLIProxy-Response-State"))
+	}
+	if got.Get("X-CLIProxy-Previous-Response-ID") != "resp-1" {
+		t.Fatalf("previous response ID = %q", got.Get("X-CLIProxy-Previous-Response-ID"))
+	}
+	if got.Get("X-Upstream-Other") != "" {
+		t.Fatalf("unexpected upstream header: %v", got)
+	}
+}
+
+func TestDownstreamHeadersAfterInterceptorsPreservesLocalHeaders(t *testing.T) {
+	base := http.Header{
+		"X-CLIProxy-Response-State":       []string{"previous"},
+		"X-CLIProxy-Previous-Response-ID": []string{"resp-1"},
+	}
+	got := downstreamHeadersAfterInterceptors(base, base.Clone(), false)
+	if got.Get("X-CLIProxy-Response-State") != "previous" {
+		t.Fatalf("response state = %q", got.Get("X-CLIProxy-Response-State"))
+	}
+	if got.Get("X-CLIProxy-Previous-Response-ID") != "resp-1" {
+		t.Fatalf("previous response ID = %q", got.Get("X-CLIProxy-Previous-Response-ID"))
+	}
+}

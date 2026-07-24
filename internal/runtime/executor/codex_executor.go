@@ -5,8 +5,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"sort"
@@ -307,8 +312,174 @@ type codexReasoningReplayScope struct {
 	requestFingerprint string
 }
 
+type codexResponseStateScope struct {
+	authID             string
+	modelName          string
+	sessionKey         string
+	previousResponseID string
+}
+
 func (s codexReasoningReplayScope) valid() bool {
 	return strings.TrimSpace(s.modelName) != "" && strings.TrimSpace(s.sessionKey) != ""
+}
+
+func (s codexResponseStateScope) valid() bool {
+	return strings.TrimSpace(s.authID) != "" &&
+		strings.TrimSpace(s.modelName) != "" &&
+		strings.TrimSpace(s.sessionKey) != ""
+}
+
+func codexStatefulResponsesEnabled(auth *cliproxyauth.Auth) bool {
+	if auth == nil || len(auth.Attributes) == 0 {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(auth.Attributes["stateful_responses"]), "true")
+}
+
+func codexResponseStateScopeFromRequest(ctx context.Context, auth *cliproxyauth.Auth, from sdktranslator.Format, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, body []byte) codexResponseStateScope {
+	if !codexStatefulResponsesEnabled(auth) || !sourceFormatEqual(from, sdktranslator.FormatClaude) {
+		return codexResponseStateScope{}
+	}
+	modelName := strings.TrimSpace(gjson.GetBytes(body, "model").String())
+	if modelName == "" {
+		modelName = thinking.ParseSuffix(req.Model).ModelName
+	}
+	return codexResponseStateScope{
+		authID:     strings.TrimSpace(auth.ID),
+		modelName:  modelName,
+		sessionKey: codexReasoningReplaySessionKey(ctx, from, req, opts, body),
+	}
+}
+
+func prepareCodexStatefulRequest(ctx context.Context, auth *cliproxyauth.Auth, from sdktranslator.Format, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, body []byte) ([]byte, codexResponseStateScope, bool) {
+	scope := codexResponseStateScopeFromRequest(ctx, auth, from, req, opts, body)
+	if !scope.valid() {
+		return body, scope, false
+	}
+
+	body, _ = sjson.SetBytes(body, "store", true)
+	body, _ = sjson.DeleteBytes(body, "previous_response_id")
+
+	state, ok := internalcache.GetCodexResponseState(scope.authID, scope.modelName, scope.sessionKey)
+	if !ok {
+		return body, scope, false
+	}
+
+	input := gjson.GetBytes(body, "input")
+	if !input.IsArray() {
+		internalcache.DeleteCodexResponseState(scope.authID, scope.modelName, scope.sessionKey)
+		return body, scope, false
+	}
+	inputItems := input.Array()
+	anchor := codexResponseStateAnchorIndex(inputItems, state)
+	if anchor < 0 || anchor+1 >= len(inputItems) {
+		internalcache.DeleteCodexResponseState(scope.authID, scope.modelName, scope.sessionKey)
+		return body, scope, false
+	}
+
+	incremental := make([]string, 0, len(inputItems)-anchor-1)
+	for _, item := range inputItems[anchor+1:] {
+		incremental = append(incremental, item.Raw)
+	}
+	updated, errSet := sjson.SetRawBytes(body, "input", []byte("["+strings.Join(incremental, ",")+"]"))
+	if errSet != nil {
+		internalcache.DeleteCodexResponseState(scope.authID, scope.modelName, scope.sessionKey)
+		return body, scope, false
+	}
+	updated, _ = sjson.SetBytes(updated, "previous_response_id", state.ResponseID)
+	scope.previousResponseID = state.ResponseID
+	return updated, scope, true
+}
+
+func codexResponseStateAnchorIndex(inputItems []gjson.Result, state internalcache.CodexResponseState) int {
+	anchor := -1
+	if fingerprint := strings.TrimSpace(state.AssistantFingerprint); fingerprint != "" {
+		for index := len(inputItems) - 1; index >= 0; index-- {
+			if codexReplayAssistantMessageFingerprint(inputItems[index]) == fingerprint {
+				anchor = index
+				break
+			}
+		}
+	}
+
+	if len(state.CallIDs) == 0 {
+		return anchor
+	}
+	callIDs := make(map[string]struct{}, len(state.CallIDs))
+	for _, callID := range state.CallIDs {
+		for _, candidate := range codexReplayComparableCallIDs(callID) {
+			callIDs[candidate] = struct{}{}
+		}
+	}
+	for index := len(inputItems) - 1; index >= 0; index-- {
+		itemType := strings.TrimSpace(inputItems[index].Get("type").String())
+		if itemType != "function_call" && itemType != "custom_tool_call" {
+			continue
+		}
+		for _, candidate := range codexReplayComparableCallIDs(inputItems[index].Get("call_id").String()) {
+			if _, ok := callIDs[candidate]; ok {
+				if index > anchor {
+					anchor = index
+				}
+				return anchor
+			}
+		}
+	}
+	return -1
+}
+
+func cacheCodexResponseStateFromCompleted(scope codexResponseStateScope, completedData []byte) {
+	if !scope.valid() {
+		return
+	}
+	response := gjson.GetBytes(completedData, "response")
+	responseID := strings.TrimSpace(response.Get("id").String())
+	output := response.Get("output")
+	if responseID == "" || !output.IsArray() {
+		return
+	}
+
+	state := internalcache.CodexResponseState{ResponseID: responseID}
+	for _, item := range output.Array() {
+		switch strings.TrimSpace(item.Get("type").String()) {
+		case "message":
+			if fingerprint := codexReplayAssistantMessageFingerprint(item); fingerprint != "" {
+				state.AssistantFingerprint = fingerprint
+			}
+		case "function_call", "custom_tool_call":
+			if callID := strings.TrimSpace(item.Get("call_id").String()); callID != "" {
+				state.CallIDs = append(state.CallIDs, callID)
+			}
+		}
+	}
+	if state.AssistantFingerprint == "" && len(state.CallIDs) == 0 {
+		return
+	}
+	internalcache.SetCodexResponseState(scope.authID, scope.modelName, scope.sessionKey, state)
+}
+
+func clearCodexResponseState(scope codexResponseStateScope) {
+	if scope.valid() {
+		internalcache.DeleteCodexResponseState(scope.authID, scope.modelName, scope.sessionKey)
+	}
+}
+
+func isCodexPreviousResponseNotFound(statusCode int, body []byte) bool {
+	code, _, ok := codexStatusErrorClassification(statusCode, body)
+	return ok && code == "previous_response_not_found"
+}
+
+func codexResponseStateHeaders(headers http.Header, scope codexResponseStateScope, usedPreviousResponse bool) http.Header {
+	out := headers.Clone()
+	if !scope.valid() {
+		return out
+	}
+	out.Set("X-CLIProxy-Response-State", "full")
+	if usedPreviousResponse && scope.previousResponseID != "" {
+		out.Set("X-CLIProxy-Response-State", "previous")
+		out.Set("X-CLIProxy-Previous-Response-ID", scope.previousResponseID)
+	}
+	return out
 }
 
 func applyCodexReasoningReplayCache(ctx context.Context, from sdktranslator.Format, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, body []byte) ([]byte, codexReasoningReplayScope) {
@@ -1148,9 +1319,14 @@ func (e *CodexExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, re
 	}
 	body = sanitizeOpenAIResponsesReasoningEncryptedContent(ctx, "codex executor", body)
 	body = normalizeCodexParallelToolCalls(body, opts.Headers)
-	body, replayScope, errReplay := applyCodexReasoningReplayCacheRequired(ctx, from, req, opts, body)
-	if errReplay != nil {
-		return resp, errReplay
+	body, responseStateScope, usedPreviousResponse := prepareCodexStatefulRequest(ctx, auth, from, req, opts, body)
+	replayScope := codexReasoningReplayScope{}
+	if !usedPreviousResponse {
+		var errReplay error
+		body, replayScope, errReplay = applyCodexReasoningReplayCacheRequired(ctx, from, req, opts, body)
+		if errReplay != nil {
+			return resp, errReplay
+		}
 	}
 	reporter.SetTranslatedReasoningEffort(body, to.String())
 
@@ -1196,6 +1372,10 @@ func (e *CodexExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, re
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 		b, _ := io.ReadAll(httpResp.Body)
 		b = applyCodexIdentityConfuseResponsePayload(b, identityState)
+		if usedPreviousResponse && isCodexPreviousResponseNotFound(httpResp.StatusCode, b) {
+			clearCodexResponseState(responseStateScope)
+			return e.Execute(ctx, auth, req, opts)
+		}
 		if errClearReplay := clearCodexReasoningReplayOnInvalidSignature(ctx, replayScope, httpResp.StatusCode, b); errClearReplay != nil {
 			return resp, errClearReplay
 		}
@@ -1220,6 +1400,10 @@ func (e *CodexExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, re
 		eventType := gjson.GetBytes(eventData, "type").String()
 
 		if streamErr, terminalBody, ok := codexTerminalFailureErr(eventData); ok {
+			if usedPreviousResponse && isCodexPreviousResponseNotFound(streamErr.StatusCode(), terminalBody) {
+				clearCodexResponseState(responseStateScope)
+				return e.Execute(ctx, auth, req, opts)
+			}
 			if errClearReplay := clearCodexReasoningReplayOnInvalidSignature(ctx, replayScope, streamErr.StatusCode(), terminalBody); errClearReplay != nil {
 				return resp, errClearReplay
 			}
@@ -1274,12 +1458,16 @@ func (e *CodexExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, re
 		}
 		if eventType == "response.completed" {
 			cacheCodexReasoningReplayFromCompleted(replayScope, completedData)
+			cacheCodexResponseStateFromCompleted(responseStateScope, completedData)
 		}
 
 		var param any
 		clientCompletedData := applyCodexIdentityExposeResponsePayload(completedData, identityState)
 		out := sdktranslator.TranslateNonStream(ctx, to, responseFormat, req.Model, originalPayload, body, clientCompletedData, &param)
-		resp = cliproxyexecutor.Response{Payload: out, Headers: httpResp.Header.Clone()}
+		resp = cliproxyexecutor.Response{
+			Payload: out,
+			Headers: codexResponseStateHeaders(httpResp.Header, responseStateScope, usedPreviousResponse),
+		}
 		return resp, nil
 	}
 	if errRead != nil {
@@ -1439,9 +1627,14 @@ func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Au
 	}
 	body = sanitizeOpenAIResponsesReasoningEncryptedContent(ctx, "codex executor", body)
 	body = normalizeCodexParallelToolCalls(body, opts.Headers)
-	body, replayScope, errReplay := applyCodexReasoningReplayCacheRequired(ctx, from, req, opts, body)
-	if errReplay != nil {
-		return nil, errReplay
+	body, responseStateScope, usedPreviousResponse := prepareCodexStatefulRequest(ctx, auth, from, req, opts, body)
+	replayScope := codexReasoningReplayScope{}
+	if !usedPreviousResponse {
+		var errReplay error
+		body, replayScope, errReplay = applyCodexReasoningReplayCacheRequired(ctx, from, req, opts, body)
+		if errReplay != nil {
+			return nil, errReplay
+		}
 	}
 	reporter.SetTranslatedReasoningEffort(body, to.String())
 
@@ -1490,6 +1683,10 @@ func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Au
 			return nil, readErr
 		}
 		data = applyCodexIdentityConfuseResponsePayload(data, identityState)
+		if usedPreviousResponse && isCodexPreviousResponseNotFound(httpResp.StatusCode, data) {
+			clearCodexResponseState(responseStateScope)
+			return e.ExecuteStream(ctx, auth, req, opts)
+		}
 		if errClearReplay := clearCodexReasoningReplayOnInvalidSignature(ctx, replayScope, httpResp.StatusCode, data); errClearReplay != nil {
 			return nil, errClearReplay
 		}
@@ -1521,6 +1718,9 @@ func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Au
 				data := bytes.TrimSpace(line[5:])
 				eventType := gjson.GetBytes(data, "type").String()
 				if streamErr, terminalBody, ok := codexTerminalFailureErr(data); ok {
+					if usedPreviousResponse && isCodexPreviousResponseNotFound(streamErr.StatusCode(), terminalBody) {
+						clearCodexResponseState(responseStateScope)
+					}
 					if errClearReplay := clearCodexReasoningReplayOnInvalidSignature(ctx, replayScope, streamErr.StatusCode(), terminalBody); errClearReplay != nil {
 						helps.RecordAPIResponseError(ctx, e.cfg, errClearReplay)
 						reporter.PublishFailure(ctx, errClearReplay)
@@ -1550,6 +1750,7 @@ func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Au
 					data = patchCodexCompletedOutput(data, outputItemsByIndex, outputItemsFallback)
 					if eventType == "response.completed" {
 						cacheCodexReasoningReplayFromCompleted(replayScope, data)
+						cacheCodexResponseStateFromCompleted(responseStateScope, data)
 					}
 					translatedLine = append([]byte("data: "), data...)
 				}
@@ -1582,7 +1783,10 @@ func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Au
 		case <-ctx.Done():
 		}
 	}()
-	return &cliproxyexecutor.StreamResult{Headers: httpResp.Header.Clone(), Chunks: out}, nil
+	return &cliproxyexecutor.StreamResult{
+		Headers: codexResponseStateHeaders(httpResp.Header, responseStateScope, usedPreviousResponse),
+		Chunks:  out,
+	}, nil
 }
 
 func (e *CodexExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
@@ -1651,14 +1855,22 @@ func countCodexInputTokens(enc tokenizer.Codec, body []byte) (int64, error) {
 
 	root := gjson.ParseBytes(body)
 	var segments []string
+	var imageTokens int64
+	var instructionOverhead int64
+	var toolOverhead int64
+	var inputItemOverhead int64
 
 	if inst := strings.TrimSpace(root.Get("instructions").String()); inst != "" {
 		segments = append(segments, inst)
+		instructionOverhead = 4
 	}
 
 	inputItems := root.Get("input")
 	if inputItems.IsArray() {
 		arr := inputItems.Array()
+		if len(arr) > 1 {
+			inputItemOverhead = int64(len(arr)-1) * 4
+		}
 		for i := range arr {
 			item := arr[i]
 			switch item.Get("type").String() {
@@ -1668,8 +1880,13 @@ func countCodexInputTokens(enc tokenizer.Codec, body []byte) (int64, error) {
 					parts := content.Array()
 					for j := range parts {
 						part := parts[j]
-						if text := strings.TrimSpace(part.Get("text").String()); text != "" {
-							segments = append(segments, text)
+						switch part.Get("type").String() {
+						case "input_image":
+							imageTokens += estimateCodexImageTokens(part.Get("image_url").String())
+						default:
+							if text := strings.TrimSpace(part.Get("text").String()); text != "" {
+								segments = append(segments, text)
+							}
 						}
 					}
 				}
@@ -1695,6 +1912,7 @@ func countCodexInputTokens(enc tokenizer.Codec, body []byte) (int64, error) {
 	tools := root.Get("tools")
 	if tools.IsArray() {
 		tarr := tools.Array()
+		toolOverhead = int64(len(tarr)) * 6
 		for i := range tarr {
 			tool := tarr[i]
 			if name := strings.TrimSpace(tool.Get("name").String()); name != "" {
@@ -1732,15 +1950,44 @@ func countCodexInputTokens(enc tokenizer.Codec, body []byte) (int64, error) {
 	}
 
 	text := strings.Join(segments, "\n")
-	if text == "" {
+	if text == "" && imageTokens == 0 && toolOverhead == 0 {
 		return 0, nil
 	}
 
-	count, err := enc.Count(text)
-	if err != nil {
-		return 0, err
+	var count int
+	if text != "" {
+		var err error
+		count, err = enc.Count(text)
+		if err != nil {
+			return 0, err
+		}
 	}
-	return int64(count), nil
+	const responseProtocolOverhead int64 = 7
+	return int64(count) + responseProtocolOverhead + instructionOverhead + toolOverhead + inputItemOverhead + imageTokens, nil
+}
+
+func estimateCodexImageTokens(imageURL string) int64 {
+	const imageTokensPerTile int64 = 80
+	imageURL = strings.TrimSpace(imageURL)
+	if imageURL == "" {
+		return imageTokensPerTile
+	}
+	comma := strings.IndexByte(imageURL, ',')
+	if comma < 0 || !strings.Contains(strings.ToLower(imageURL[:comma]), ";base64") {
+		return imageTokensPerTile
+	}
+	decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(imageURL[comma+1:]))
+	cfg, _, err := image.DecodeConfig(decoder)
+	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
+		return imageTokensPerTile
+	}
+	widthTiles := (cfg.Width + 511) / 512
+	heightTiles := (cfg.Height + 511) / 512
+	tiles := widthTiles * heightTiles
+	if tiles < 1 {
+		tiles = 1
+	}
+	return int64(tiles) * imageTokensPerTile
 }
 
 func (e *CodexExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {

@@ -2603,7 +2603,12 @@ func buildConfigModels[T modelEntry](models []T, ownedBy, modelType string) []*M
 		}
 		seen[key] = struct{}{}
 		if name != "" {
-			if upstream := registry.LookupStaticModelInfo(name); upstream != nil && upstream.Thinking != nil {
+			if upstream := registry.LookupStaticModelInfo(name); upstream != nil {
+				info.Version = upstream.Version
+				info.Description = upstream.Description
+				info.ContextLength = upstream.ContextLength
+				info.MaxCompletionTokens = upstream.MaxCompletionTokens
+				info.SupportedParameters = append([]string(nil), upstream.SupportedParameters...)
 				info.Thinking = upstream.Thinking
 			}
 		}
@@ -2647,6 +2652,11 @@ func buildCodexConfigModels(entry *config.CodexKey) []*ModelInfo {
 
 	models := registry.WithCodexBuiltins(buildConfigModels(entry.Models, "openai", "openai"))
 	configuredDisplayNames := make(map[string]string, len(entry.Models))
+	configuredContextLengths := make(map[string]int, len(entry.Models))
+	configuredMaxCompletionTokens := make(map[string]int, len(entry.Models))
+	configuredInputModalities := make(map[string][]string, len(entry.Models))
+	configuredOutputModalities := make(map[string][]string, len(entry.Models))
+	configuredThinking := make(map[string]*registry.ThinkingSupport, len(entry.Models))
 	seenConfiguredModels := make(map[string]struct{}, len(entry.Models))
 	for i := range entry.Models {
 		model := entry.Models[i]
@@ -2667,6 +2677,21 @@ func buildCodexConfigModels(entry *config.CodexKey) []*ModelInfo {
 		if displayName != "" {
 			configuredDisplayNames[key] = displayName
 		}
+		if model.ContextLength > 0 {
+			configuredContextLengths[key] = model.ContextLength
+		}
+		if model.MaxCompletionTokens > 0 {
+			configuredMaxCompletionTokens[key] = model.MaxCompletionTokens
+		}
+		if modalities := normalizeCompatConfigModalities(model.InputModalities); len(modalities) > 0 {
+			configuredInputModalities[key] = modalities
+		}
+		if modalities := normalizeCompatConfigModalities(model.OutputModalities); len(modalities) > 0 {
+			configuredOutputModalities[key] = modalities
+		}
+		if model.Thinking != nil {
+			configuredThinking[key] = model.Thinking
+		}
 	}
 	for _, model := range models {
 		if model == nil {
@@ -2674,6 +2699,21 @@ func buildCodexConfigModels(entry *config.CodexKey) []*ModelInfo {
 		}
 		if displayName, ok := configuredDisplayNames[strings.ToLower(model.ID)]; ok {
 			model.DisplayName = displayName
+		}
+		if contextLength, ok := configuredContextLengths[strings.ToLower(model.ID)]; ok {
+			model.ContextLength = contextLength
+		}
+		if maxCompletionTokens, ok := configuredMaxCompletionTokens[strings.ToLower(model.ID)]; ok {
+			model.MaxCompletionTokens = maxCompletionTokens
+		}
+		if modalities, ok := configuredInputModalities[strings.ToLower(model.ID)]; ok {
+			model.SupportedInputModalities = append([]string(nil), modalities...)
+		}
+		if modalities, ok := configuredOutputModalities[strings.ToLower(model.ID)]; ok {
+			model.SupportedOutputModalities = append([]string(nil), modalities...)
+		}
+		if thinking, ok := configuredThinking[strings.ToLower(model.ID)]; ok {
+			model.Thinking = thinking
 		}
 	}
 	return models

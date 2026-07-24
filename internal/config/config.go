@@ -530,6 +530,9 @@ type CodexKey struct {
 	// Websockets enables the Responses API websocket transport for this credential.
 	Websockets bool `yaml:"websockets,omitempty" json:"websockets,omitempty"`
 
+	// StatefulResponses enables stored Responses API chaining for this credential.
+	StatefulResponses bool `yaml:"stateful-responses,omitempty" json:"stateful-responses,omitempty"`
+
 	// ProxyURL overrides the global proxy setting for this API key if provided.
 	ProxyURL string `yaml:"proxy-url" json:"proxy-url"`
 
@@ -562,6 +565,21 @@ type CodexModel struct {
 
 	// ForceMapping rewrites upstream response model fields back to Alias.
 	ForceMapping bool `yaml:"force-mapping,omitempty" json:"force-mapping,omitempty"`
+
+	// ContextLength overrides the model context window advertised to clients.
+	ContextLength int `yaml:"context-length,omitempty" json:"context-length,omitempty"`
+
+	// MaxCompletionTokens overrides the maximum output tokens advertised to clients.
+	MaxCompletionTokens int `yaml:"max-completion-tokens,omitempty" json:"max-completion-tokens,omitempty"`
+
+	// InputModalities declares responses input capabilities (e.g. text, image).
+	InputModalities []string `yaml:"input-modalities,omitempty" json:"input-modalities,omitempty"`
+
+	// OutputModalities declares supported output modalities when known (e.g. text).
+	OutputModalities []string `yaml:"output-modalities,omitempty" json:"output-modalities,omitempty"`
+
+	// Thinking configures the reasoning capability for this model.
+	Thinking *registry.ThinkingSupport `yaml:"thinking,omitempty" json:"thinking,omitempty"`
 }
 
 func (m CodexModel) GetName() string        { return m.Name }

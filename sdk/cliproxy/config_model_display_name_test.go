@@ -96,6 +96,29 @@ func TestBuildCodexConfigModelsPreservesBuiltinDisplayNames(t *testing.T) {
 	}
 }
 
+func TestBuildCodexConfigModelsAppliesConfiguredTokenLimits(t *testing.T) {
+	models := buildCodexConfigModels(&config.CodexKey{Models: []config.CodexModel{{
+		Name:                "gpt-5.6-sol",
+		Alias:               "gpt-5.6-sol",
+		ContextLength:       1_000_000,
+		MaxCompletionTokens: 32_000,
+	}}})
+
+	for _, model := range models {
+		if model.ID != "gpt-5.6-sol" {
+			continue
+		}
+		if model.ContextLength != 1_000_000 {
+			t.Fatalf("ContextLength = %d, want 1000000", model.ContextLength)
+		}
+		if model.MaxCompletionTokens != 32_000 {
+			t.Fatalf("MaxCompletionTokens = %d, want 32000", model.MaxCompletionTokens)
+		}
+		return
+	}
+	t.Fatal("gpt-5.6-sol not found")
+}
+
 func TestBuildConfigModelsDisplayNameFallback(t *testing.T) {
 	model := buildClaudeConfigModels(&config.ClaudeKey{Models: []config.ClaudeModel{{
 		Name: "claude-upstream", Alias: "claude-catalog",
