@@ -1,0 +1,32 @@
+# Route the stable downstream Sol name through GitHub Copilot's internal Fast model.
+# Replace the placeholder with a GitHub token that has Copilot access.
+codex-api-key:
+  - api-key: "YOUR_GITHUB_TOKEN"
+    priority: 200
+    base-url: "https://api.githubcopilot.com"
+    headers:
+      Copilot-Integration-Id: "copilot-developer-cli"
+    stateful-responses: false
+    models:
+      - name: "gpt-5.6-sol-fast"
+        alias: "gpt-5.6-sol"
+        display-name: "GPT 5.6 Sol"
+        force-mapping: true
+        max-context-length: 922000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: [low, medium, high, xhigh, max]
+
+# The Fast model already selects priority processing. Remove a downstream tier
+# selection so clients cannot accidentally request Fast twice.
+payload:
+  filter:
+    - models:
+        - name: "gpt-5.6-sol"
+          protocol: "codex"
+        - name: "gpt-5.6-sol-fast"
+          protocol: "codex"
+      params:
+        - "service_tier"

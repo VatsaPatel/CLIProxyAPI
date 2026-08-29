@@ -233,6 +233,18 @@ bash "$HOME/.local/share/cliproxyapi/ensure.sh"
 
 The local config generator and environment contain private provider credentials and are intentionally not published. A new computer should supply its own protected configuration and keep secret-bearing files mode `0600`.
 
+### GitHub Copilot Sol Fast routing
+
+This fork can keep downstream clients on `gpt-5.6-sol` while routing requests to GitHub Copilot's account-gated `gpt-5.6-sol-fast` model. Use the configuration in [`examples/github-copilot-sol-fast.yaml`](examples/github-copilot-sol-fast.yaml). It:
+
+- sends `Copilot-Integration-Id: copilot-developer-cli`;
+- maps downstream `gpt-5.6-sol` to upstream `gpt-5.6-sol-fast`;
+- preserves the downstream model name in responses;
+- advertises the 922,000-token prompt limit and 128,000-token output limit; and
+- removes `service_tier` because the Fast model already selects priority processing.
+
+The model is internal and account-gated. Confirm that the GitHub token exposes `gpt-5.6-sol-fast` before enabling this mapping.
+
 ## Management API
 
 see [MANAGEMENT_API.md](https://help.router-for.me/management/api)

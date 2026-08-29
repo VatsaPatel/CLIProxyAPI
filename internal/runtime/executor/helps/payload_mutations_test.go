@@ -203,6 +203,23 @@ func TestApplyPayloadConfigProjectionOverrideWritesEveryMatch(t *testing.T) {
 	}
 }
 
+func TestApplyPayloadConfigGitHubCopilotSolFastDropsServiceTier(t *testing.T) {
+	cfg := &config.Config{Payload: config.PayloadConfig{
+		Filter: []config.PayloadFilterRule{{
+			Models: []config.PayloadModelRule{
+				{Name: "gpt-5.6-sol", Protocol: "codex"},
+				{Name: "gpt-5.6-sol-fast", Protocol: "codex"},
+			},
+			Params: []string{"service_tier"},
+		}},
+	}}
+	input := []byte(`{"model":"gpt-5.6-sol-fast","service_tier":"priority"}`)
+	output := ApplyPayloadConfigWithRequest(cfg, "gpt-5.6-sol-fast", "codex", "responses", "", input, nil, "gpt-5.6-sol", "", nil)
+	if gjson.GetBytes(output, "service_tier").Exists() {
+		t.Fatalf("service_tier was not removed: %s", output)
+	}
+}
+
 func TestApplyPayloadConfigProjectionOverrideRawWritesEveryMatch(t *testing.T) {
 	cfg := &config.Config{Payload: config.PayloadConfig{
 		OverrideRaw: []config.PayloadRule{{
