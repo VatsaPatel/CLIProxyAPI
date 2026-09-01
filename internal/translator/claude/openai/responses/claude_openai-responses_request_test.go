@@ -1499,6 +1499,7 @@ func TestConvertOpenAIResponsesRequestToClaude_FableOnlyAssistantMessageYieldsFa
 func TestConvertOpenAIResponsesRequestToClaude_UnsupportedPrefillModelsStripTrailingAssistant(t *testing.T) {
 	unsupportedModels := []string{
 		"claude-fable-5",
+		"claude-fable-5-1",
 		"claude-opus-5",
 		"claude-sonnet-4-6",
 	}

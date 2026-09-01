@@ -45,6 +45,42 @@ func TestApplyThinkingWithModelInfoMapsCrossFamilyHighIntent(t *testing.T) {
 	}
 }
 
+func TestApplyThinkingWithModelInfoKeepsAlwaysOnClaudeAdaptive(t *testing.T) {
+	modelInfo := &registry.ModelInfo{
+		ID:   "claude-fable-5-1",
+		Type: "claude",
+		Thinking: &registry.ThinkingSupport{
+			DynamicAllowed: true,
+			Levels:         []string{"low", "medium", "high", "xhigh", "max"},
+		},
+	}
+
+	for _, test := range []struct {
+		name       string
+		body       string
+		wantEffort string
+	}{
+		{name: "disabled becomes lowest effort", body: `{"thinking":{"type":"disabled"}}`, wantEffort: "low"},
+		{name: "manual budget becomes effort", body: `{"thinking":{"type":"enabled","budget_tokens":24576}}`, wantEffort: "high"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			out, err := thinking.ApplyThinkingWithModelInfo([]byte(test.body), []byte(test.body), modelInfo.ID, "claude", "claude", "claude", modelInfo)
+			if err != nil {
+				t.Fatalf("ApplyThinkingWithModelInfo() error = %v", err)
+			}
+			if got := gjson.GetBytes(out, "thinking.type").String(); got != "adaptive" {
+				t.Fatalf("thinking.type = %q, want adaptive; body=%s", got, out)
+			}
+			if got := gjson.GetBytes(out, "output_config.effort").String(); got != test.wantEffort {
+				t.Fatalf("output_config.effort = %q, want %q; body=%s", got, test.wantEffort, out)
+			}
+			if gjson.GetBytes(out, "thinking.budget_tokens").Exists() {
+				t.Fatalf("budget_tokens survived adaptive conversion: %s", out)
+			}
+		})
+	}
+}
+
 func TestApplyThinkingWithModelInfoMapsOpenAICompatibilityHighIntent(t *testing.T) {
 	modelInfo := &registry.ModelInfo{
 		ID:       "compat-upstream",

@@ -429,6 +429,9 @@ type ClaudeModel struct {
 	// MaxContextLength overrides the context window advertised to Codex clients.
 	MaxContextLength int `yaml:"max-context-length,omitempty" json:"max-context-length,omitempty"`
 
+	// MaxCompletionTokens overrides the maximum output tokens advertised to clients.
+	MaxCompletionTokens int `yaml:"max-completion-tokens,omitempty" json:"max-completion-tokens,omitempty"`
+
 	// ForceMapping rewrites upstream response model fields back to Alias.
 	ForceMapping bool `yaml:"force-mapping,omitempty" json:"force-mapping,omitempty"`
 
@@ -447,8 +450,11 @@ func (m ClaudeModel) GetAlias() string { return m.Alias }
 
 func (m ClaudeModel) GetDisplayName() string   { return m.DisplayName }
 func (m ClaudeModel) GetMaxContextLength() int { return m.MaxContextLength }
-func (m ClaudeModel) GetForceMapping() bool    { return m.ForceMapping }
-func (m ClaudeModel) GetIsCompat() bool        { return m.IsCompat }
+func (m ClaudeModel) GetMaxCompletionTokens() int {
+	return m.MaxCompletionTokens
+}
+func (m ClaudeModel) GetForceMapping() bool { return m.ForceMapping }
+func (m ClaudeModel) GetIsCompat() bool     { return m.IsCompat }
 
 func (m ClaudeModel) GetThinking() *registry.ThinkingSupport { return m.Thinking }
 

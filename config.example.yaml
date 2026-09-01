@@ -492,6 +492,7 @@ nonstream-keepalive-interval: 0
 #         alias: "claude-sonnet-latest"      # client alias mapped to the upstream model
 #         display-name: "Claude Sonnet"      # optional catalog display name
 #         max-context-length: 1048576         # optional: override Codex client context window metadata
+#         max-completion-tokens: 128000        # optional: override the maximum output tokens advertised to clients
 #         force-mapping: true                 # optional: rewrite response model fields back to the alias
 #         is-compat: false                    # optional: preserve thinking blocks with empty signatures for compatible upstreams
 #         thinking:                           # optional: exact thinking capability for this configured model

@@ -8,6 +8,12 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func TestClaudeOpenRouterRedactedThinkingRepairSupportsFable51(t *testing.T) {
+	if !claudeOpenRouterRedactedThinkingRepairEnabled("https://openrouter.ai/api", "anthropic/claude-fable-5.1") {
+		t.Fatal("OpenRouter Fable 5.1 response repair is disabled")
+	}
+}
+
 func TestRepairClaudeOpenRouterJSONResponseDropsRedactedThinking(t *testing.T) {
 	input := []byte(`{"content":[{"type":"redacted_thinking","data":"hidden"},{"type":"text","text":"ok"}]}`)
 	got := repairClaudeOpenRouterJSONResponse(input)

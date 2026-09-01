@@ -166,6 +166,16 @@ func ValidateConfig(config ThinkingConfig, modelInfo *registry.ModelInfo, fromFo
 		}
 	}
 
+	// A level-only model without zero/none support is always on. Preserve the
+	// caller's intent as the lowest supported effort instead of emitting a
+	// provider-specific disabled form that the model rejects.
+	cannotDisableLevelModel := !support.ZeroAllowed && !isLevelSupported(string(LevelNone), support.Levels)
+	if config.Mode == ModeNone && len(support.Levels) > 0 && cannotDisableLevelModel {
+		config.Mode = ModeLevel
+		config.Level = ThinkingLevel(support.Levels[0])
+		config.Budget = 0
+	}
+
 	if config.Mode == ModeNone && toFormat == "claude" {
 		// Claude supports explicit disable via thinking.type="disabled".
 		// Keep Budget=0 so applier can omit budget_tokens.
@@ -177,13 +187,12 @@ func ValidateConfig(config ThinkingConfig, modelInfo *registry.ModelInfo, fromFo
 			config.Budget = clampBudget(config.Budget, modelInfo, toFormat)
 		}
 
-		// ModeNone for a model that cannot be disabled falls back to the lowest
-		// supported level. Budget-capable models reach this path with Budget > 0;
-		// level-only models need the capability flags checked explicitly because
-		// their Min/Max range is zero.
-		cannotDisableLevelModel := !support.ZeroAllowed && !isLevelSupported(string(LevelNone), support.Levels)
-		if config.Mode == ModeNone && len(support.Levels) > 0 && (config.Budget > 0 || cannotDisableLevelModel) {
+		// ModeNone for a budget-capable model that cannot be disabled falls back
+		// to the lowest supported level after budget clamping.
+		if config.Mode == ModeNone && len(support.Levels) > 0 && config.Budget > 0 {
+			config.Mode = ModeLevel
 			config.Level = ThinkingLevel(support.Levels[0])
+			config.Budget = 0
 		}
 	}
 

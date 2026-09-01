@@ -121,6 +121,25 @@ func TestBuildCodexConfigModelsAppliesConfiguredTokenLimits(t *testing.T) {
 	t.Fatal("gpt-5.6-sol not found")
 }
 
+func TestBuildClaudeConfigModelsAppliesConfiguredTokenLimits(t *testing.T) {
+	models := buildClaudeConfigModels(&config.ClaudeKey{Models: []config.ClaudeModel{{
+		Name:                "anthropic/claude-fable-5.1",
+		Alias:               "claude-fable-5-1",
+		MaxContextLength:    1_000_000,
+		MaxCompletionTokens: 128_000,
+	}}})
+
+	if len(models) != 1 {
+		t.Fatalf("model count = %d, want 1", len(models))
+	}
+	if models[0].ContextLength != 1_000_000 {
+		t.Fatalf("ContextLength = %d, want 1000000", models[0].ContextLength)
+	}
+	if models[0].MaxCompletionTokens != 128_000 {
+		t.Fatalf("MaxCompletionTokens = %d, want 128000", models[0].MaxCompletionTokens)
+	}
+}
+
 func TestBuildConfigModelsDisplayNameFallback(t *testing.T) {
 	model := buildClaudeConfigModels(&config.ClaudeKey{Models: []config.ClaudeModel{{
 		Name: "claude-upstream", Alias: "claude-catalog",

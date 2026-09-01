@@ -42,6 +42,31 @@ func TestGeminiVertexModelsUseFlashLiteReleaseID(t *testing.T) {
 	t.Fatalf("Vertex models do not contain %q", releaseID)
 }
 
+func TestClaudeModelsIncludeFable51(t *testing.T) {
+	for _, model := range GetClaudeModels() {
+		if model == nil || model.ID != "claude-fable-5-1" {
+			continue
+		}
+		if model.ContextLength != 1000000 || model.MaxCompletionTokens != 128000 {
+			t.Fatalf("Fable 5.1 limits = (%d, %d), want (1000000, 128000)", model.ContextLength, model.MaxCompletionTokens)
+		}
+		if model.Thinking == nil || !model.Thinking.DynamicAllowed || model.Thinking.ZeroAllowed || model.Thinking.Min != 0 || model.Thinking.Max != 0 {
+			t.Fatalf("Fable 5.1 thinking = %+v, want always-on adaptive thinking", model.Thinking)
+		}
+		wantLevels := []string{"low", "medium", "high", "xhigh", "max"}
+		if len(model.Thinking.Levels) != len(wantLevels) {
+			t.Fatalf("Fable 5.1 levels = %v, want %v", model.Thinking.Levels, wantLevels)
+		}
+		for index := range wantLevels {
+			if model.Thinking.Levels[index] != wantLevels[index] {
+				t.Fatalf("Fable 5.1 levels = %v, want %v", model.Thinking.Levels, wantLevels)
+			}
+		}
+		return
+	}
+	t.Fatal("Claude models do not contain claude-fable-5-1")
+}
+
 func TestWithXAIBuiltinsIncludesImage20(t *testing.T) {
 	models := WithXAIBuiltins(nil)
 	for _, model := range models {
