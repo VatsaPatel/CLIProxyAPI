@@ -67,6 +67,34 @@ func TestClaudeModelsIncludeFable51(t *testing.T) {
 	t.Fatal("Claude models do not contain claude-fable-5-1")
 }
 
+func TestClaudeModelsIncludeOpus55(t *testing.T) {
+	for _, model := range GetClaudeModels() {
+		if model == nil || model.ID != "claude-opus-5-5" {
+			continue
+		}
+		if model.Created != 1790035200 {
+			t.Fatalf("Opus 5.5 created = %d, want 1790035200", model.Created)
+		}
+		if model.ContextLength != 1000000 || model.MaxCompletionTokens != 128000 {
+			t.Fatalf("Opus 5.5 limits = (%d, %d), want (1000000, 128000)", model.ContextLength, model.MaxCompletionTokens)
+		}
+		if model.Thinking == nil || !model.Thinking.DynamicAllowed || model.Thinking.ZeroAllowed || model.Thinking.Min != 0 || model.Thinking.Max != 0 {
+			t.Fatalf("Opus 5.5 thinking = %+v, want always-on adaptive thinking", model.Thinking)
+		}
+		wantLevels := []string{"low", "medium", "high", "xhigh", "max"}
+		if len(model.Thinking.Levels) != len(wantLevels) {
+			t.Fatalf("Opus 5.5 levels = %v, want %v", model.Thinking.Levels, wantLevels)
+		}
+		for index := range wantLevels {
+			if model.Thinking.Levels[index] != wantLevels[index] {
+				t.Fatalf("Opus 5.5 levels = %v, want %v", model.Thinking.Levels, wantLevels)
+			}
+		}
+		return
+	}
+	t.Fatal("Claude models do not contain claude-opus-5-5")
+}
+
 func TestWithXAIBuiltinsIncludesImage20(t *testing.T) {
 	models := WithXAIBuiltins(nil)
 	for _, model := range models {

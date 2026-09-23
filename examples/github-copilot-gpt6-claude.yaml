@@ -1,0 +1,121 @@
+# GitHub Copilot exposes GPT-6 through Responses and Claude through Anthropic Messages.
+# The same GitHub token can back both executor types. Keep Fable 5.1 on OpenRouter.
+codex-api-key:
+  - api-key: "YOUR_GITHUB_TOKEN"
+    priority: 200
+    base-url: "https://api.githubcopilot.com"
+    headers:
+      Copilot-Integration-Id: "copilot-developer-cli"
+    stateful-responses: false
+    models:
+      - name: "gpt-6-astra"
+        alias: "gpt-6-astra"
+        display-name: "GPT 6 Astra"
+        force-mapping: true
+        max-context-length: 1050000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: [low, medium, high, xhigh, max]
+      - name: "gpt-6-sol"
+        alias: "gpt-6-sol"
+        display-name: "GPT 6 Sol"
+        force-mapping: true
+        max-context-length: 872000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "gpt-6-luna"
+        alias: "gpt-6-luna"
+        display-name: "GPT 6 Luna"
+        force-mapping: true
+        max-context-length: 872000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh, max]
+
+claude-api-key:
+  - api-key: "YOUR_GITHUB_TOKEN"
+    priority: 200
+    base-url: "https://api.githubcopilot.com"
+    headers:
+      Copilot-Integration-Id: "copilot-developer-cli"
+    models:
+      - name: "claude-opus-5.5"
+        alias: "claude-opus-5-5"
+        display-name: "Claude Opus 5.5"
+        force-mapping: true
+        max-context-length: 872000
+        max-completion-tokens: 128000
+        thinking:
+          dynamic-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "claude-opus-5"
+        alias: "claude-opus-5"
+        display-name: "Claude Opus 5"
+        force-mapping: true
+        max-context-length: 936000
+        max-completion-tokens: 64000
+        thinking:
+          zero-allowed: true
+          dynamic-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "claude-sonnet-5"
+        alias: "claude-sonnet-5"
+        display-name: "Claude Sonnet 5"
+        force-mapping: true
+        max-context-length: 936000
+        max-completion-tokens: 64000
+        thinking:
+          zero-allowed: true
+          dynamic-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "claude-opus-4.8"
+        alias: "claude-opus-4-8"
+        display-name: "Claude Opus 4.8"
+        force-mapping: true
+        max-context-length: 936000
+        max-completion-tokens: 64000
+        thinking:
+          zero-allowed: true
+          dynamic-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "claude-opus-4.7"
+        alias: "claude-opus-4-7"
+        display-name: "Claude Opus 4.7"
+        force-mapping: true
+        max-context-length: 936000
+        max-completion-tokens: 64000
+        thinking:
+          zero-allowed: true
+          dynamic-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "claude-haiku-4.5"
+        alias: "claude-haiku-4-5"
+        display-name: "Claude Haiku 4.5"
+        force-mapping: true
+        max-context-length: 136000
+        max-completion-tokens: 64000
+  - api-key: "YOUR_OPENROUTER_TOKEN"
+    priority: 100
+    base-url: "https://openrouter.ai/api"
+    headers:
+      HTTP-Referer: "https://github.com/router-for-me/CLIProxyAPI"
+      X-OpenRouter-Title: "CLIProxyAPI"
+    models:
+      - name: "anthropic/claude-fable-5.1"
+        alias: "claude-fable-5-1"
+        display-name: "Claude Fable 5.1"
+        force-mapping: true
+        max-context-length: 1000000
+        max-completion-tokens: 128000
+        thinking:
+          dynamic-allowed: true
+          levels: [low, medium, high, xhigh, max]

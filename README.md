@@ -241,6 +241,17 @@ This fork can keep downstream clients on `gpt-5.6-sol` while routing requests to
 
 The model is internal and account-gated. Confirm that the GitHub token exposes `gpt-5.6-sol-fast` before enabling this mapping.
 
+### GitHub Copilot GPT-6 and Claude routing
+
+The configuration in [`examples/github-copilot-gpt6-claude.yaml`](examples/github-copilot-gpt6-claude.yaml) uses one GitHub token through both supported protocols:
+
+- GPT-6 Astra, Sol, and Luna use the Responses API through `codex-api-key`;
+- Claude Opus 5.5, Opus 5, Sonnet 5, Opus 4.8, Opus 4.7, and Haiku 4.5 use Anthropic Messages through `claude-api-key`;
+- `Copilot-Integration-Id: copilot-developer-cli` is sent on both routes; and
+- Claude Fable 5.1 remains on OpenRouter because GitHub Copilot does not expose it.
+
+The client-facing Opus 5.5 name is `claude-opus-5-5`; the GitHub upstream name is `claude-opus-5.5`. The force mapping keeps downstream requests and responses on the client-facing name.
+
 ## Management API
 
 see [MANAGEMENT_API.md](https://help.router-for.me/management/api)
