@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -13,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	baseauth "github.com/router-for-me/CLIProxyAPI/v7/internal/auth"
+	baseauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth"
 )
 
 // PostAuthHook defines a function that is called after an Auth record is created
@@ -89,6 +90,8 @@ type Auth struct {
 	LastRefreshedAt time.Time `json:"last_refreshed_at"`
 	// NextRefreshAfter is the earliest time a refresh should retrigger.
 	NextRefreshAfter time.Time `json:"next_refresh_after"`
+	// RefreshFailures tracks consecutive refresh failures for exponential backoff (in-memory only).
+	RefreshFailures int `json:"-"`
 	// NextRetryAfter is the earliest time a retry should retrigger.
 	NextRetryAfter time.Time `json:"next_retry_after"`
 	// ModelStates tracks per-model runtime availability data.
@@ -290,19 +293,19 @@ func (a *Auth) Clone() *Auth {
 	}
 	copyAuth := *a
 	copyAuth.Quota = a.Quota.Clone()
-	if len(a.Attributes) > 0 {
+	if a.Attributes != nil {
 		copyAuth.Attributes = make(map[string]string, len(a.Attributes))
 		for key, value := range a.Attributes {
 			copyAuth.Attributes[key] = value
 		}
 	}
-	if len(a.Metadata) > 0 {
+	if a.Metadata != nil {
 		copyAuth.Metadata = make(map[string]any, len(a.Metadata))
 		for key, value := range a.Metadata {
 			copyAuth.Metadata[key] = value
 		}
 	}
-	if len(a.ModelStates) > 0 {
+	if a.ModelStates != nil {
 		copyAuth.ModelStates = make(map[string]*ModelState, len(a.ModelStates))
 		for key, state := range a.ModelStates {
 			copyAuth.ModelStates[key] = state.Clone()
@@ -391,6 +394,8 @@ func (a *Auth) indexSeed() string {
 			apiPrefix = "xai-api-key"
 		case strings.EqualFold(provider, "claude"):
 			apiPrefix = "claude-api-key"
+		case strings.EqualFold(provider, "meta"):
+			apiPrefix = "meta-api-key"
 		}
 	}
 	if apiPrefix != "" {
@@ -607,14 +612,51 @@ func (a *Auth) AccountInfo() (string, string) {
 // ExpirationTime attempts to extract the credential expiration timestamp from metadata.
 // It inspects common absolute expiry keys, expires_in plus timestamp, and nested
 // token objects to remain compatible with legacy auth file formats.
+// If the access_token contains a valid JWT exp claim, it is given priority.
 func (a *Auth) ExpirationTime() (time.Time, bool) {
 	if a == nil {
 		return time.Time{}, false
+	}
+	if tokenStr := authAccessToken(a); tokenStr != "" {
+		if jwtExp, ok := parseJWTExp(tokenStr); ok {
+			return jwtExp, true
+		}
 	}
 	if ts, ok := expirationFromMap(a.Metadata); ok {
 		return ts, true
 	}
 	return time.Time{}, false
+}
+
+// AccessTokenExpirationTime returns the expiration time of the specific access_token.
+// If the access_token is a JWT, its exp claim takes strict precedence.
+func (a *Auth) AccessTokenExpirationTime() (time.Time, bool) {
+	if a == nil {
+		return time.Time{}, false
+	}
+	tokenStr := authAccessToken(a)
+	if tokenStr == "" {
+		return time.Time{}, false
+	}
+	if jwtExp, ok := parseJWTExp(tokenStr); ok {
+		return jwtExp, true
+	}
+	return a.ExpirationTime()
+}
+
+// HasValidAccessToken returns whether the auth has a non-empty access token that is unexpired at the given time.
+func (a *Auth) HasValidAccessToken(now time.Time) bool {
+	if a == nil {
+		return false
+	}
+	tokenStr := authAccessToken(a)
+	if tokenStr == "" {
+		return false
+	}
+	if exp, ok := a.AccessTokenExpirationTime(); ok {
+		return exp.After(now)
+	}
+	return true
 }
 
 var (
@@ -666,6 +708,65 @@ func expirationFromMap(meta map[string]any) (time.Time, bool) {
 					return ts, true
 				}
 			}
+		}
+	}
+	return time.Time{}, false
+}
+
+// parseJWTExp extracts the "exp" claim timestamp from a JWT token string without signature verification.
+func parseJWTExp(token string) (time.Time, bool) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return time.Time{}, false
+	}
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return time.Time{}, false
+	}
+	payloadSegment := parts[1]
+	var (
+		payloadBytes []byte
+		errDecode    error
+	)
+	switch len(payloadSegment) % 4 {
+	case 2:
+		payloadBytes, errDecode = base64.URLEncoding.DecodeString(payloadSegment + "==")
+	case 3:
+		payloadBytes, errDecode = base64.URLEncoding.DecodeString(payloadSegment + "=")
+	default:
+		payloadBytes, errDecode = base64.URLEncoding.DecodeString(payloadSegment)
+	}
+	if errDecode != nil {
+		payloadBytes, errDecode = base64.RawURLEncoding.DecodeString(payloadSegment)
+		if errDecode != nil {
+			return time.Time{}, false
+		}
+	}
+	var claims struct {
+		Exp any `json:"exp"`
+	}
+	if errJSON := json.Unmarshal(payloadBytes, &claims); errJSON != nil {
+		return time.Time{}, false
+	}
+	if claims.Exp == nil {
+		return time.Time{}, false
+	}
+	switch expVal := claims.Exp.(type) {
+	case float64:
+		if expVal > 0 {
+			return normaliseUnix(int64(expVal)), true
+		}
+	case int64:
+		if expVal > 0 {
+			return normaliseUnix(expVal), true
+		}
+	case int:
+		if expVal > 0 {
+			return normaliseUnix(int64(expVal)), true
+		}
+	case string:
+		if sec, errParse := strconv.ParseInt(strings.TrimSpace(expVal), 10, 64); errParse == nil && sec > 0 {
+			return normaliseUnix(sec), true
 		}
 	}
 	return time.Time{}, false
