@@ -7,7 +7,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestGitHubCopilotGPT6ClaudeExample(t *testing.T) {
+func TestGitHubCopilotCatalogExample(t *testing.T) {
 	raw, errRead := os.ReadFile("../../examples/github-copilot-gpt6-claude.yaml")
 	if errRead != nil {
 		t.Fatalf("read example: %v", errRead)
@@ -17,57 +17,69 @@ func TestGitHubCopilotGPT6ClaudeExample(t *testing.T) {
 	if errUnmarshal := yaml.Unmarshal(raw, &cfg); errUnmarshal != nil {
 		t.Fatalf("decode example: %v", errUnmarshal)
 	}
-	if len(cfg.CodexKey) != 1 {
-		t.Fatalf("codex-api-key count = %d, want 1", len(cfg.CodexKey))
+	if len(cfg.CodexKey) != 1 || len(cfg.CodexKey[0].Models) != 19 {
+		t.Fatalf("Codex groups/models = %d/%d, want 1/19", len(cfg.CodexKey), len(cfg.CodexKey[0].Models))
 	}
-	if len(cfg.ClaudeKey) != 2 {
-		t.Fatalf("claude-api-key count = %d, want 2", len(cfg.ClaudeKey))
+	if len(cfg.ClaudeKey) != 2 || len(cfg.ClaudeKey[0].Models) != 8 || len(cfg.ClaudeKey[1].Models) != 1 {
+		t.Fatalf("Claude groups/models = %d/%d/%d, want 2/8/1", len(cfg.ClaudeKey), len(cfg.ClaudeKey[0].Models), len(cfg.ClaudeKey[1].Models))
 	}
+	if len(cfg.OpenAICompatibility) != 1 || len(cfg.OpenAICompatibility[0].Models) != 18 {
+		t.Fatalf("compatibility groups/models = %d/%d, want 1/18", len(cfg.OpenAICompatibility), len(cfg.OpenAICompatibility[0].Models))
+	}
+
 	if got := cfg.CodexKey[0].Headers["Copilot-Integration-Id"]; got != "copilot-developer-cli" {
-		t.Fatalf("Codex Copilot-Integration-Id = %q, want copilot-developer-cli", got)
+		t.Fatalf("Codex Copilot-Integration-Id = %q", got)
 	}
 	if got := cfg.ClaudeKey[0].Headers["Copilot-Integration-Id"]; got != "copilot-developer-cli" {
-		t.Fatalf("Claude Copilot-Integration-Id = %q, want copilot-developer-cli", got)
+		t.Fatalf("Claude Copilot-Integration-Id = %q", got)
+	}
+	if got := cfg.OpenAICompatibility[0].Headers["Copilot-Integration-Id"]; got != "copilot-developer-cli" {
+		t.Fatalf("compatibility Copilot-Integration-Id = %q", got)
 	}
 
-	wantCodex := map[string]int{
-		"gpt-6-astra": 1050000,
-		"gpt-6-sol":   872000,
-		"gpt-6-luna":  872000,
-	}
+	codexModels := make(map[string]CodexModel, len(cfg.CodexKey[0].Models))
 	for _, model := range cfg.CodexKey[0].Models {
-		wantContext, ok := wantCodex[model.Alias]
-		if !ok {
-			t.Fatalf("unexpected Codex model alias %q", model.Alias)
-		}
-		if model.Name != model.Alias || model.MaxContextLength != wantContext || model.MaxCompletionTokens != 128000 {
-			t.Fatalf("Codex model = %+v, want direct GitHub mapping with context %d and output 128000", model, wantContext)
-		}
-		delete(wantCodex, model.Alias)
+		codexModels[model.Alias] = model
 	}
-	if len(wantCodex) != 0 {
-		t.Fatalf("missing Codex models: %v", wantCodex)
+	gpt61, okGPT61 := codexModels["gpt-6.1-sol"]
+	if !okGPT61 || gpt61.Name != "gpt-6.1-sol" || gpt61.MaxContextLength != 922000 || gpt61.MaxCompletionTokens != 128000 {
+		t.Fatalf("GPT-6.1 Sol mapping = %+v", gpt61)
+	}
+	for _, id := range []string{"gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "grok-4.7", "mai-code-1.1-flash"} {
+		if _, ok := codexModels[id]; !ok {
+			t.Errorf("missing Responses model %q", id)
+		}
 	}
 
-	foundOpus55 := false
+	claudeModels := make(map[string]ClaudeModel, len(cfg.ClaudeKey[0].Models))
 	for _, model := range cfg.ClaudeKey[0].Models {
-		if model.Alias != "claude-opus-5-5" {
-			continue
-		}
-		foundOpus55 = true
-		if model.Name != "claude-opus-5.5" || model.MaxContextLength != 872000 || model.MaxCompletionTokens != 128000 {
-			t.Fatalf("Opus 5.5 mapping = %+v", model)
-		}
+		claudeModels[model.Alias] = model
 	}
-	if !foundOpus55 {
-		t.Fatal("GitHub Claude models do not contain claude-opus-5-5")
+	opus55 := claudeModels["claude-opus-5-5"]
+	if opus55.Name != "claude-opus-5.5" || opus55.MaxContextLength != 1000000 || opus55.MaxCompletionTokens != 128000 {
+		t.Fatalf("Opus 5.5 mapping = %+v", opus55)
+	}
+	sonnet55 := claudeModels["claude-sonnet-5-5"]
+	if sonnet55.Name != "claude-sonnet-5.5" || sonnet55.MaxContextLength != 936000 || sonnet55.MaxCompletionTokens != 128000 {
+		t.Fatalf("Sonnet 5.5 mapping = %+v", sonnet55)
 	}
 
-	if len(cfg.ClaudeKey[1].Models) != 1 {
-		t.Fatalf("OpenRouter Claude model count = %d, want only Fable 5.1", len(cfg.ClaudeKey[1].Models))
-	}
 	fable := cfg.ClaudeKey[1].Models[0]
 	if fable.Name != "anthropic/claude-fable-5.1" || fable.Alias != "claude-fable-5-1" {
-		t.Fatalf("OpenRouter Claude mapping = %+v, want Fable 5.1", fable)
+		t.Fatalf("OpenRouter Fable mapping = %+v", fable)
+	}
+
+	compatModels := make(map[string]OpenAICompatibilityModel, len(cfg.OpenAICompatibility[0].Models))
+	for _, model := range cfg.OpenAICompatibility[0].Models {
+		compatModels[model.Alias] = model
+	}
+	if model := compatModels["gemini-3.8-flash"]; model.Name != "gemini-3.8-flash" || model.MaxContextLength != 983040 {
+		t.Fatalf("Gemini 3.8 mapping = %+v", model)
+	}
+	if model := compatModels["gpt-4o"]; model.MaxCompletionTokens != 4096 {
+		t.Fatalf("GPT-4o output limit = %d, want 4096", model.MaxCompletionTokens)
+	}
+	if model := compatModels["text-embedding-3-small"]; model.Name != "text-embedding-3-small" {
+		t.Fatalf("embedding mapping = %+v", model)
 	}
 }

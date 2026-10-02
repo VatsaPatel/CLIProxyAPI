@@ -245,16 +245,18 @@ This fork can keep downstream clients on `gpt-5.6-sol` while routing requests to
 
 The model is internal and account-gated. Confirm that the GitHub token exposes `gpt-5.6-sol-fast` before enabling this mapping.
 
-### GitHub Copilot GPT-6 and Claude routing
+### GitHub Copilot full model catalog routing
 
-The configuration in [`examples/github-copilot-gpt6-claude.yaml`](examples/github-copilot-gpt6-claude.yaml) uses one GitHub token through both supported protocols:
+The configuration in [`examples/github-copilot-gpt6-claude.yaml`](examples/github-copilot-gpt6-claude.yaml) exposes the complete public GitHub Copilot catalog snapshot validated on October 2, 2026:
 
-- GPT-6 Astra, Sol, and Luna use the Responses API through `codex-api-key`;
-- Claude Opus 5.5, Opus 5, Sonnet 5, Opus 4.8, Opus 4.7, and Haiku 4.5 use Anthropic Messages through `claude-api-key`;
-- `Copilot-Integration-Id: copilot-developer-cli` is sent on both routes; and
+- GPT-5/6, Grok, and MAI coding models use Responses through `codex-api-key`;
+- GPT-3.5/4 and Gemini models use Chat Completions through `openai-compatibility`;
+- Claude Opus 5.5, Sonnet 5.5, Opus 5, Sonnet 5, Opus 4.8, and Haiku 4.5 use Anthropic Messages through `claude-api-key`;
+- the three GitHub embedding models use the `/v1/embeddings` passthrough endpoint;
+- `Copilot-Integration-Id: copilot-developer-cli` is sent on every GitHub route; and
 - Claude Fable 5.1 remains on OpenRouter because GitHub Copilot does not expose it.
 
-The client-facing Opus 5.5 name is `claude-opus-5-5`; the GitHub upstream name is `claude-opus-5.5`. The force mapping keeps downstream requests and responses on the client-facing name.
+Claude model aliases replace dots with hyphens for Claude Code compatibility: for example, `claude-opus-5-5` maps to `claude-opus-5.5` and `claude-sonnet-5-5` maps to `claude-sonnet-5.5`. GPT-6.1 Sol is exposed as `gpt-6.1-sol` with a 922,000-token prompt limit and 128,000-token output limit.
 
 ## Management API
 

@@ -1,5 +1,7 @@
-# GitHub Copilot exposes GPT-6 through Responses and Claude through Anthropic Messages.
-# The same GitHub token can back both executor types. Keep Fable 5.1 on OpenRouter.
+# GitHub Copilot catalog snapshot validated on 2026-10-02.
+# Responses models use codex-api-key, legacy/Gemini chat and embeddings use
+# openai-compatibility, and Claude models use Anthropic Messages.
+# Fable 5.1 remains on OpenRouter because GitHub does not expose it.
 codex-api-key:
   - api-key: "YOUR_GITHUB_TOKEN"
     priority: 200
@@ -8,9 +10,128 @@ codex-api-key:
       Copilot-Integration-Id: "copilot-developer-cli"
     stateful-responses: false
     models:
+      - name: "gpt-5-mini"
+        alias: "gpt-5-mini"
+        display-name: "GPT-5 mini"
+        force-mapping: true
+        max-context-length: 128000
+        max-completion-tokens: 64000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: [low, medium, high]
+      - name: "gpt-5.3-codex"
+        alias: "gpt-5.3-codex"
+        display-name: "GPT-5.3-Codex"
+        force-mapping: true
+        max-context-length: 272000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: [low, medium, high, xhigh]
+      - name: "gpt-5.4"
+        alias: "gpt-5.4"
+        display-name: "GPT-5.4"
+        force-mapping: true
+        max-context-length: 922000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh]
+      - name: "gpt-5.4-mini"
+        alias: "gpt-5.4-mini"
+        display-name: "GPT-5.4 mini"
+        force-mapping: true
+        max-context-length: 272000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh]
+      - name: "gpt-5.4-nano"
+        alias: "gpt-5.4-nano"
+        display-name: "GPT-5.4 nano"
+        force-mapping: true
+        max-context-length: 272000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh]
+      - name: "gpt-5.5"
+        alias: "gpt-5.5"
+        display-name: "GPT-5.5"
+        force-mapping: true
+        max-context-length: 922000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh]
+      - name: "gpt-5.6-luna"
+        alias: "gpt-5.6-luna"
+        display-name: "GPT-5.6 Luna"
+        force-mapping: true
+        max-context-length: 922000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "gpt-5.6-luna-utility"
+        alias: "gpt-5.6-luna-utility"
+        display-name: "GPT-5.6 Luna Utility"
+        force-mapping: true
+        max-context-length: 922000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "gpt-5.6-sol"
+        alias: "gpt-5.6-sol"
+        display-name: "GPT-5.6 Sol"
+        force-mapping: true
+        max-context-length: 922000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "gpt-5.6-sol-fast"
+        alias: "gpt-5.6-sol-fast"
+        display-name: "GPT-5.6 Sol Fast (Internal only)"
+        force-mapping: true
+        max-context-length: 922000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "gpt-5.6-terra"
+        alias: "gpt-5.6-terra"
+        display-name: "GPT-5.6 Terra"
+        force-mapping: true
+        max-context-length: 922000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh, max]
       - name: "gpt-6-astra"
         alias: "gpt-6-astra"
-        display-name: "GPT 6 Astra"
+        display-name: "GPT-6 Astra"
         force-mapping: true
         max-context-length: 1050000
         max-completion-tokens: 128000
@@ -18,20 +139,9 @@ codex-api-key:
         output-modalities: [text]
         thinking:
           levels: [low, medium, high, xhigh, max]
-      - name: "gpt-6-sol"
-        alias: "gpt-6-sol"
-        display-name: "GPT 6 Sol"
-        force-mapping: true
-        max-context-length: 872000
-        max-completion-tokens: 128000
-        input-modalities: [text, image]
-        output-modalities: [text]
-        thinking:
-          zero-allowed: true
-          levels: [low, medium, high, xhigh, max]
       - name: "gpt-6-luna"
         alias: "gpt-6-luna"
-        display-name: "GPT 6 Luna"
+        display-name: "GPT-6 Luna"
         force-mapping: true
         max-context-length: 872000
         max-completion-tokens: 128000
@@ -40,6 +150,68 @@ codex-api-key:
         thinking:
           zero-allowed: true
           levels: [low, medium, high, xhigh, max]
+      - name: "gpt-6-sol"
+        alias: "gpt-6-sol"
+        display-name: "GPT-6 Sol"
+        force-mapping: true
+        max-context-length: 872000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "gpt-6.1-sol"
+        alias: "gpt-6.1-sol"
+        display-name: "GPT-6.1 Sol"
+        force-mapping: true
+        max-context-length: 922000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          zero-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "grok-4.5"
+        alias: "grok-4.5"
+        display-name: "Grok 4.5"
+        force-mapping: true
+        max-context-length: 372000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: [low, medium, high]
+      - name: "grok-4.6"
+        alias: "grok-4.6"
+        display-name: "Grok 4.6"
+        force-mapping: true
+        max-context-length: 372000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: [low, medium, high, xhigh]
+      - name: "grok-4.7"
+        alias: "grok-4.7"
+        display-name: "Grok 4.7"
+        force-mapping: true
+        max-context-length: 372000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: [low, medium, high, xhigh]
+      - name: "mai-code-1.1-flash"
+        alias: "mai-code-1.1-flash"
+        display-name: "MAI-Code-1.1-Flash"
+        force-mapping: true
+        max-context-length: 128000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: [low, medium, high]
 
 claude-api-key:
   - api-key: "YOUR_GITHUB_TOKEN"
@@ -48,12 +220,24 @@ claude-api-key:
     headers:
       Copilot-Integration-Id: "copilot-developer-cli"
     models:
-      - name: "claude-opus-5.5"
-        alias: "claude-opus-5-5"
-        display-name: "Claude Opus 5.5"
+      - name: "claude-haiku-4.5"
+        alias: "claude-haiku-4-5"
+        display-name: "Claude Haiku 4.5"
         force-mapping: true
-        max-context-length: 872000
-        max-completion-tokens: 128000
+        max-context-length: 136000
+        max-completion-tokens: 64000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "claude-opus-4.8"
+        alias: "claude-opus-4-8"
+        display-name: "Claude Opus 4.8"
+        force-mapping: true
+        max-context-length: 936000
+        max-completion-tokens: 64000
+        input-modalities: [text, image]
+        output-modalities: [text]
         thinking:
           dynamic-allowed: true
           levels: [low, medium, high, xhigh, max]
@@ -63,8 +247,42 @@ claude-api-key:
         force-mapping: true
         max-context-length: 936000
         max-completion-tokens: 64000
+        input-modalities: [text, image]
+        output-modalities: [text]
         thinking:
-          zero-allowed: true
+          dynamic-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "claude-opus-5"
+        alias: "opus5"
+        display-name: "Claude Opus 5"
+        force-mapping: true
+        max-context-length: 936000
+        max-completion-tokens: 64000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          dynamic-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "claude-opus-5"
+        alias: "opus5[1M]"
+        display-name: "Claude Opus 5"
+        force-mapping: true
+        max-context-length: 936000
+        max-completion-tokens: 64000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          dynamic-allowed: true
+          levels: [low, medium, high, xhigh, max]
+      - name: "claude-opus-5.5"
+        alias: "claude-opus-5-5"
+        display-name: "Claude Opus 5.5"
+        force-mapping: true
+        max-context-length: 1000000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
           dynamic-allowed: true
           levels: [low, medium, high, xhigh, max]
       - name: "claude-sonnet-5"
@@ -73,36 +291,22 @@ claude-api-key:
         force-mapping: true
         max-context-length: 936000
         max-completion-tokens: 64000
+        input-modalities: [text, image]
+        output-modalities: [text]
         thinking:
-          zero-allowed: true
           dynamic-allowed: true
           levels: [low, medium, high, xhigh, max]
-      - name: "claude-opus-4.8"
-        alias: "claude-opus-4-8"
-        display-name: "Claude Opus 4.8"
+      - name: "claude-sonnet-5.5"
+        alias: "claude-sonnet-5-5"
+        display-name: "Claude Sonnet 5.5"
         force-mapping: true
         max-context-length: 936000
-        max-completion-tokens: 64000
+        max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
         thinking:
-          zero-allowed: true
           dynamic-allowed: true
           levels: [low, medium, high, xhigh, max]
-      - name: "claude-opus-4.7"
-        alias: "claude-opus-4-7"
-        display-name: "Claude Opus 4.7"
-        force-mapping: true
-        max-context-length: 936000
-        max-completion-tokens: 64000
-        thinking:
-          zero-allowed: true
-          dynamic-allowed: true
-          levels: [low, medium, high, xhigh, max]
-      - name: "claude-haiku-4.5"
-        alias: "claude-haiku-4-5"
-        display-name: "Claude Haiku 4.5"
-        force-mapping: true
-        max-context-length: 136000
-        max-completion-tokens: 64000
   - api-key: "YOUR_OPENROUTER_TOKEN"
     priority: 100
     base-url: "https://openrouter.ai/api"
@@ -116,6 +320,192 @@ claude-api-key:
         force-mapping: true
         max-context-length: 1000000
         max-completion-tokens: 128000
+        input-modalities: [text, image]
+        output-modalities: [text]
         thinking:
           dynamic-allowed: true
           levels: [low, medium, high, xhigh, max]
+
+openai-compatibility:
+  - name: "github-copilot"
+    priority: 200
+    base-url: "https://api.githubcopilot.com"
+    api-key-entries:
+      - api-key: "YOUR_GITHUB_TOKEN"
+    headers:
+      Copilot-Integration-Id: "copilot-developer-cli"
+    models:
+      - name: "gemini-3.7-flash"
+        alias: "gemini-3.7-flash"
+        display-name: "Gemini 3.7 Flash"
+        force-mapping: true
+        max-context-length: 936000
+        max-completion-tokens: 64000
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: [low, medium, high]
+      - name: "gemini-3.8-flash"
+        alias: "gemini-3.8-flash"
+        display-name: "Gemini 3.8 Flash"
+        force-mapping: true
+        max-context-length: 983040
+        max-completion-tokens: 65536
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: [low, medium, high]
+      - name: "gpt-3.5-turbo"
+        alias: "gpt-3.5-turbo"
+        display-name: "GPT 3.5 Turbo"
+        force-mapping: true
+        max-context-length: 16384
+        max-completion-tokens: 4096
+        input-modalities: [text]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-3.5-turbo-0613"
+        alias: "gpt-3.5-turbo-0613"
+        display-name: "GPT 3.5 Turbo"
+        force-mapping: true
+        max-context-length: 16384
+        max-completion-tokens: 4096
+        input-modalities: [text]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-4"
+        alias: "gpt-4"
+        display-name: "GPT 4"
+        force-mapping: true
+        max-context-length: 32768
+        max-completion-tokens: 4096
+        input-modalities: [text]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-4-0613"
+        alias: "gpt-4-0613"
+        display-name: "GPT 4"
+        force-mapping: true
+        max-context-length: 32768
+        max-completion-tokens: 4096
+        input-modalities: [text]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-4-o-preview"
+        alias: "gpt-4-o-preview"
+        display-name: "GPT-4o"
+        force-mapping: true
+        max-context-length: 64000
+        max-completion-tokens: 4096
+        input-modalities: [text]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-4.1"
+        alias: "gpt-4.1"
+        display-name: "GPT-4.1"
+        force-mapping: true
+        max-context-length: 64000
+        max-completion-tokens: 16384
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-4.1-2025-04-14"
+        alias: "gpt-4.1-2025-04-14"
+        display-name: "GPT-4.1"
+        force-mapping: true
+        max-context-length: 64000
+        max-completion-tokens: 16384
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-4o"
+        alias: "gpt-4o"
+        display-name: "GPT-4o"
+        force-mapping: true
+        max-context-length: 64000
+        max-completion-tokens: 4096
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-4o-2024-05-13"
+        alias: "gpt-4o-2024-05-13"
+        display-name: "GPT-4o"
+        force-mapping: true
+        max-context-length: 64000
+        max-completion-tokens: 4096
+        input-modalities: [text, image]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-4o-2024-08-06"
+        alias: "gpt-4o-2024-08-06"
+        display-name: "GPT-4o"
+        force-mapping: true
+        max-context-length: 64000
+        max-completion-tokens: 16384
+        input-modalities: [text]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-4o-2024-11-20"
+        alias: "gpt-4o-2024-11-20"
+        display-name: "GPT-4o"
+        force-mapping: true
+        max-context-length: 64000
+        max-completion-tokens: 16384
+        input-modalities: [text]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-4o-mini"
+        alias: "gpt-4o-mini"
+        display-name: "GPT-4o mini"
+        force-mapping: true
+        max-context-length: 64000
+        max-completion-tokens: 4096
+        input-modalities: [text]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "gpt-4o-mini-2024-07-18"
+        alias: "gpt-4o-mini-2024-07-18"
+        display-name: "GPT-4o mini"
+        force-mapping: true
+        max-context-length: 64000
+        max-completion-tokens: 4096
+        input-modalities: [text]
+        output-modalities: [text]
+        thinking:
+          levels: []
+      - name: "text-embedding-3-small"
+        alias: "text-embedding-3-small"
+        display-name: "Embedding V3 small"
+        force-mapping: true
+        input-modalities: [text]
+        output-modalities: [embedding]
+        thinking:
+          levels: []
+      - name: "text-embedding-3-small-inference"
+        alias: "text-embedding-3-small-inference"
+        display-name: "Embedding V3 small (Inference)"
+        force-mapping: true
+        input-modalities: [text]
+        output-modalities: [embedding]
+        thinking:
+          levels: []
+      - name: "text-embedding-ada-002"
+        alias: "text-embedding-ada-002"
+        display-name: "Embedding V2 Ada"
+        force-mapping: true
+        input-modalities: [text]
+        output-modalities: [embedding]
+        thinking:
+          levels: []
